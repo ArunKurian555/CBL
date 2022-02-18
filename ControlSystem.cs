@@ -13,10 +13,11 @@ namespace CBL
 {
     public class ControlSystem : CrestronControlSystem
     {
-        EthernetIntersystemCommunications eisc;
-        int numberOfZones = 250;
-        bool[] activeZones;
-        const string file = "Single.txt";
+
+        ThreeSeriesTcpIpEthernetIntersystemCommunications [] areas = new ThreeSeriesTcpIpEthernetIntersystemCommunications [5];
+        uint numberOfZones = 250;
+        bool[] activeZones = new bool[250];
+
 
         /// <summary>
         /// ControlSystem Constructor. Starting point for the SIMPL#Pro program.
@@ -38,20 +39,7 @@ namespace CBL
             {
                 Thread.MaxNumberOfUserThreads = 20;
 
-                CrestronConsole.AddNewConsoleCommand(Read, "Read", "Output the file content.", ConsoleAccessLevelEnum.AccessAdministrator);
-
-                CrestronEnvironment.ProgramStatusEventHandler += new ProgramStatusEventHandler(_ControllerProgramEventHandler);
-                eisc = new EthernetIntersystemCommunications(0xE1, "127.0.0.2",this);
-                activeZones = new bool[numberOfZones];
-
-                #region EISC
-                if (eisc.Register() == eDeviceRegistrationUnRegistrationResponse.Success)
-                    eisc.SigChange += Eisc_SigChange;
-
-                else
-                    CrestronConsole.PrintLine("EISC not registered");
-
-                #endregion
+                CrestronConsole.AddNewConsoleCommand(ZoneAreaRead, "Read", "Output the file content.", ConsoleAccessLevelEnum.AccessAdministrator);
 
 
             }
@@ -61,8 +49,40 @@ namespace CBL
             }
         }
 
+        private void ZoneAreaWrite(string args,uint areanumber)
+        {
+            string filePath = "/nvram/Areas";
+            string fullpath = Path.Combine(filePath, args);
+            string message = $"Area{areanumber}\n";
 
-        private void Read(string args)
+            try
+            {
+
+                for (uint i = 0; i < numberOfZones; i++)
+                {
+                        if (activeZones[i] == true)
+                            message = message + "1\n";
+                        else
+                            message = message + "0\n";
+                }
+                message = message + "ENDOFFILE";
+                using (FileStream fs= File.Create(fullpath))
+                {
+                    fs.Write(message + Environment.NewLine, Encoding.Default);
+                }
+
+
+            }
+            catch
+            {
+
+            }
+
+
+
+        }
+
+        private void ZoneAreaRead(string args)
         {
             string filePath = "/nvram/Areas";
             string fullpath = Path.Combine(filePath, args);
@@ -70,8 +90,7 @@ namespace CBL
 
             try
             {
-                if (File.Exists(fullpath))
-                {
+
 
                     using (var sr = new StreamReader(fullpath))
                     {
@@ -89,9 +108,7 @@ namespace CBL
                         }
                        
                     }
-                }
-                else
-                    CrestronConsole.PrintLine("file not found ");
+
             }
             catch 
             {
@@ -107,71 +124,165 @@ namespace CBL
             switch (args.Sig.Type)
             {
                 case eSigType.Bool:
-                    
 
-                    #region Save todo
-                    
-                    if (eisc.BooleanOutput[1].BoolValue == true)
+
+                    #region IPID E1 to E4
+                    for(uint k=0; k < 4; k++)
                     {
-                        for (uint i = 0; i < numberOfZones; i++)
+
+                        #region Zone Area
+                        uint areaIndex = args.Sig.Number / (numberOfZones + 2);
+                        uint areaNumber = areaIndex + 1;
+                        uint trueAreaNumber = areaNumber+ k * 15 ;
+
+
+                        if (areas[k].BooleanOutput[args.Sig.Number].BoolValue == true)
                         {
-                            activeZones[i]= eisc.BooleanOutput[3+i].BoolValue;
+
+
+                            #region Save
+                            if (args.Sig.Number % (numberOfZones + 2) == 1)
+                            {
+                                for (uint i = 0; i < numberOfZones; i++)
+                                {
+
+                                    activeZones[i] = areas[k].BooleanOutput[areaIndex * (numberOfZones + 2) + 3 + i].BoolValue;
+                                }
+                                this.ZoneAreaWrite($"A{trueAreaNumber}.txt", trueAreaNumber);
+
+                            }
+                            #endregion
+
+                            #region Retrieve
+                            if (args.Sig.Number % (numberOfZones + 2) == 2)
+                            {
+                                this.ZoneAreaRead($"A{trueAreaNumber}.txt");
+                                for (uint i = 0; i < numberOfZones; i++)
+                                {
+
+                                    areas[k].BooleanInput[areaIndex * (numberOfZones + 2) + 3 + i].BoolValue = activeZones[i];
+                                }
+                            }
+                            #endregion
+
                         }
-                    }
-                    #endregion
+
+                        #endregion
 
 
-                    #region Retrieve DONE
+                        #region Number of Areas
 
+                        #region Set and Save
+                        ushort numberOfAreas;
+                        string message = $"Number of Area\n";
+                        string filePath = "/nvram/Areas/NosArea.txt";
 
-                    uint areaIndex = args.Sig.Number / 252;
-                    uint areaNumber = areaIndex + 1;
+                        if (areas[3].BooleanOutput[2000].BoolValue == true)
+                        {
+                           numberOfAreas=  Convert.ToUInt16(areas[3].StringOutput[1].StringValue);
+                            areas[3].UShortInput[1].UShortValue = numberOfAreas;
 
-                  
-                    if (eisc.BooleanOutput[args.Sig.Number%252 + (areaIndex*252)].BoolValue == true)
-                    {
+                            for (uint i = 0; i < 50; i++)
+                            {
+                                if (i < numberOfAreas)
+                                {
+                                    areas[3].BooleanInput[i + 2000].BoolValue = true;
+                                    message = message + "1\n";
+                                }
+                                else
+                                {
+                                    areas[3].BooleanInput[i + 2000].BoolValue = false;
+                                    message = message + "0\n";
+                                }
+                            }
+                            message = message + "ENDOFFILE";
+                            using (FileStream fs = File.Create(filePath))
+                            {
+                                fs.Write(message + Environment.NewLine, Encoding.Default);
+                            }
+                        }
+                        #endregion
+
+                        #region Retrieve
                        
-                        this.Read($"A{areaNumber}.txt");
-                        for (uint i = 0; i < numberOfZones; i++)
+                        string line;
+                        if (areas[3].BooleanOutput[2001].BoolValue == true)
                         {
+                            try
+                            {
 
-                            eisc.BooleanInput[areaIndex*252+3 + i].BoolValue = activeZones[i];
+
+                                using (var sr = new StreamReader(filePath))
+                                {
+
+                                    line = sr.ReadLine(); // to skip line 1
+                                    for (uint i = 0; i < numberOfZones; i++)
+                                    {
+                                        if ((line = sr.ReadLine()) != null)
+                                        {
+                                            if (line == "1")
+                                                areas[3].BooleanInput[i + 2000].BoolValue = true;
+                                            else
+                                                areas[3].BooleanInput[i + 2000].BoolValue = false;
+                                        }
+                                    }
+
+                                }
+
+                            }
+                            catch
+                            {
+                            }
                         }
+
+                        #endregion
+
+
+                        #endregion
+
+                        #endregion
+
+
+
+
+
+
+
+
+
                     }
 
 
-                    #endregion 
 
 
 
-                    break;
-                case eSigType.UShort:
-                    eisc.UShortInput[args.Sig.Number].UShortValue = args.Sig.UShortValue;
-                    break;
-                case eSigType.String:
+
                     break;
             }
 
 
         }
 
-        /// <summary>
-        /// InitializeSystem - this method gets called after the constructor 
-        /// has finished. 
-        /// 
-        /// Use InitializeSystem to:
-        /// * Start threads
-        /// * Configure ports, such as serial and verisports
-        /// * Start and initialize socket connections
-        /// Send initial device configurations
-        /// 
-        /// Please be aware that InitializeSystem needs to exit quickly also; 
-        /// if it doesn't exit in time, the SIMPL#Pro program will exit.
-        /// </summary>
         public override void InitializeSystem()
         {
             try
             {
+
+
+                #region EISC
+
+                for (uint i = 0; i < 4; i++)
+                {
+                    areas[i] = new ThreeSeriesTcpIpEthernetIntersystemCommunications (225 + i, "127.0.0.2", this); // 225 is IPID E1
+                    if (areas[i].Register() == eDeviceRegistrationUnRegistrationResponse.Success)
+                        areas[i].SigChange += Eisc_SigChange;
+                    else
+                        CrestronConsole.PrintLine("EISC not registered");
+                }
+
+                #endregion
+
+
 
             }
             catch (Exception e)
@@ -180,33 +291,7 @@ namespace CBL
             }
         }
 
-        /// <summary>
-        /// Event Handler for Programmatic events: Stop, Pause, Resume.
-        /// Use this event to clean up when a program is stopping, pausing, and resuming.
-        /// This event only applies to this SIMPL#Pro program, it doesn't receive events
-        /// for other programs stopping
-        /// </summary>
-        /// <param name="programStatusEventType"></param>
-        void _ControllerProgramEventHandler(eProgramStatusEventType programStatusEventType)
-        {
-            switch (programStatusEventType)
-            {
-                case (eProgramStatusEventType.Paused):
-                    //The program has been paused.  Pause all user threads/timers as needed.
-                    break;
-                case (eProgramStatusEventType.Resumed):
-                    //The program has been resumed. Resume all the user threads/timers as needed.
-                    break;
-                case (eProgramStatusEventType.Stopping):
-                    //The program has been stopped.
-                    //Close all threads. 
-                    //Shutdown all Client/Servers in the system.
-                    //General cleanup.
-                    //Unsubscribe to all System Monitor events
-                    break;
-            }
 
-        }
 
 
     }
