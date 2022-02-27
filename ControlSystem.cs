@@ -14,24 +14,10 @@ namespace CBL
     public class ControlSystem : CrestronControlSystem
     {
 
-        ThreeSeriesTcpIpEthernetIntersystemCommunications [] areas = new ThreeSeriesTcpIpEthernetIntersystemCommunications [5];
+        ThreeSeriesTcpIpEthernetIntersystemCommunications [] links = new ThreeSeriesTcpIpEthernetIntersystemCommunications [5];
         uint numberOfZones = 250;
         bool[] activeZones = new bool[250];
 
-
-        /// <summary>
-        /// ControlSystem Constructor. Starting point for the SIMPL#Pro program.
-        /// Use the constructor to:
-        /// * Initialize the maximum number of threads (max = 400)
-        /// * Register devices
-        /// * Register event handlers
-        /// * Add Console Commands
-        /// 
-        /// Please be aware that the constructor needs to exit quickly; if it doesn't
-        /// exit in time, the SIMPL#Pro program will exit.
-        /// 
-        /// You cannot send / receive data in the constructor
-        /// </summary>
         public ControlSystem()
             : base()
         {
@@ -125,7 +111,6 @@ namespace CBL
             {
                 case eSigType.Bool:
 
-
                     #region IPID E1 to E4
                     for(uint k=0; k < 4; k++)
                     {
@@ -136,7 +121,7 @@ namespace CBL
                         uint trueAreaNumber = areaNumber+ k * 15 ;
 
 
-                        if (areas[k].BooleanOutput[args.Sig.Number].BoolValue == true)
+                        if (links[k].BooleanOutput[args.Sig.Number].BoolValue == true)
                         {
 
 
@@ -146,7 +131,7 @@ namespace CBL
                                 for (uint i = 0; i < numberOfZones; i++)
                                 {
 
-                                    activeZones[i] = areas[k].BooleanOutput[areaIndex * (numberOfZones + 2) + 3 + i].BoolValue;
+                                    activeZones[i] = links[k].BooleanOutput[areaIndex * (numberOfZones + 2) + 3 + i].BoolValue;
                                 }
                                 this.ZoneAreaWrite($"A{trueAreaNumber}.txt", trueAreaNumber);
 
@@ -160,7 +145,7 @@ namespace CBL
                                 for (uint i = 0; i < numberOfZones; i++)
                                 {
 
-                                    areas[k].BooleanInput[areaIndex * (numberOfZones + 2) + 3 + i].BoolValue = activeZones[i];
+                                    links[k].BooleanInput[areaIndex * (numberOfZones + 2) + 3 + i].BoolValue = activeZones[i];
                                 }
                             }
                             #endregion
@@ -177,21 +162,21 @@ namespace CBL
                         string message = $"Number of Area\n";
                         string filePath = "/nvram/Areas/NosArea.txt";
 
-                        if (areas[3].BooleanOutput[2000].BoolValue == true)
+                        if (links[3].BooleanOutput[2000].BoolValue == true)
                         {
-                           numberOfAreas=  Convert.ToUInt16(areas[3].StringOutput[1].StringValue);
-                            areas[3].UShortInput[1].UShortValue = numberOfAreas;
+                           numberOfAreas=  Convert.ToUInt16(links[3].StringOutput[1].StringValue);
+                            links[3].UShortInput[1].UShortValue = numberOfAreas;
 
                             for (uint i = 0; i < 50; i++)
                             {
                                 if (i < numberOfAreas)
                                 {
-                                    areas[3].BooleanInput[i + 2000].BoolValue = true;
+                                    links[3].BooleanInput[i + 2000].BoolValue = true;
                                     message = message + "1\n";
                                 }
                                 else
                                 {
-                                    areas[3].BooleanInput[i + 2000].BoolValue = false;
+                                    links[3].BooleanInput[i + 2000].BoolValue = false;
                                     message = message + "0\n";
                                 }
                             }
@@ -206,7 +191,8 @@ namespace CBL
                         #region Retrieve
                        
                         string line;
-                        if (areas[3].BooleanOutput[2001].BoolValue == true)
+                        ushort numberOfArea =0;
+                        if (links[3].BooleanOutput[2001].BoolValue == true)
                         {
                             try
                             {
@@ -216,19 +202,25 @@ namespace CBL
                                 {
 
                                     line = sr.ReadLine(); // to skip line 1
-                                    for (uint i = 0; i < numberOfZones; i++)
-                                    {
-                                        if ((line = sr.ReadLine()) != null)
+                                    
+                                        uint i =0;
+                                        while ((line = sr.ReadLine()) != null)
                                         {
+                                            
                                             if (line == "1")
-                                                areas[3].BooleanInput[i + 2000].BoolValue = true;
+
+                                            {
+                                                links[3].BooleanInput[i + 2000].BoolValue = true;
+                                                numberOfArea ++;
+                                            }
                                             else
-                                                areas[3].BooleanInput[i + 2000].BoolValue = false;
+                                                links[3].BooleanInput[i + 2000].BoolValue = false;
+                                        i++;
                                         }
-                                    }
+                                    
 
                                 }
-
+                                links[3].UShortInput[1].UShortValue = numberOfArea;
                             }
                             catch
                             {
@@ -240,22 +232,43 @@ namespace CBL
 
                         #endregion
 
-                        #endregion
-
-
-
-
-
-
-
-
-
+                        
                     }
+                    #endregion
 
+                    #region E5  Scene Saver
+                    try { 
+                    
+                    for (uint j =1;j<9;j++)
+                        {
 
+                            string values = $"Scene {j} \n";
+                            int trueValue = 1;
+                            string sceneFilePath = $"/nvram/Scenes/Scene{j}.txt";
 
+                            if (links[4].BooleanOutput[j].BoolValue == true)
+                            {
+                                for (uint i = 0; i < numberOfZones; i++)
+                                {
 
+                                    trueValue = links[4].UShortOutput[i + 1].UShortValue;
+                                    values = values + (trueValue / 655).ToString() + "\n";
 
+                                }
+
+                                values = values + "ENDOFFILE";
+                                using (FileStream fs = File.Create(sceneFilePath))
+                                {
+                                    fs.Write(values + Environment.NewLine, Encoding.Default);
+                                }
+                            }
+                        }
+                        
+                  
+                    }
+                    catch { }
+
+                    #endregion
 
                     break;
             }
@@ -271,11 +284,11 @@ namespace CBL
 
                 #region EISC
 
-                for (uint i = 0; i < 4; i++)
+                for (uint i = 0; i <5; i++)
                 {
-                    areas[i] = new ThreeSeriesTcpIpEthernetIntersystemCommunications (225 + i, "127.0.0.2", this); // 225 is IPID E1
-                    if (areas[i].Register() == eDeviceRegistrationUnRegistrationResponse.Success)
-                        areas[i].SigChange += Eisc_SigChange;
+                    links[i] = new ThreeSeriesTcpIpEthernetIntersystemCommunications (225 + i, "127.0.0.2", this); // 225 is IPID E1
+                    if (links[i].Register() == eDeviceRegistrationUnRegistrationResponse.Success)
+                        links[i].SigChange += Eisc_SigChange;
                     else
                         CrestronConsole.PrintLine("EISC not registered");
                 }
