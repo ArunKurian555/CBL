@@ -18,7 +18,7 @@ namespace CBL
         ThreeSeriesTcpIpEthernetIntersystemCommunications[] scenes= new ThreeSeriesTcpIpEthernetIntersystemCommunications[8];
         uint numberOfZones = 250;
         bool[] activeZones = new bool[250];
-
+        string[,] sceneData;
         public ControlSystem()
             : base()
         {
@@ -104,86 +104,125 @@ namespace CBL
 
         }
 
-        // Store and Ret in D1-8 change from E6-E8 change below
+
         private void SceneRet(uint num)
         {
-            
+
             try
+            {
+
+                Xlsheet xlsheet = new Xlsheet();
+                string sceneFilePath = "/nvram/CB/Settings.xlsx";
+
+                sceneData = xlsheet.ReadExcel(sceneFilePath, 0); // RET Excel with 1st Row and Column as index 0,0
+                int k;
+                uint j = num;
+                for (uint i = 1; i < 251; i++)
                 {
 
-                uint i,j;
-                ushort k;
-                string line;
-                j = num;
-                string sceneFilePath = $"/nvram/Scenes/Scene{j}.txt";
-                    
+                    k = (ushort)(Convert.ToUInt16(sceneData[i, j]) * 655); // 65535 to % level
+                    scenes[j - 1].UShortInput[i].UShortValue = (ushort)k;
 
-
-                    using (var sr = new StreamReader(sceneFilePath))
-                        {
-                        string scenename = sr.ReadLine();
-
-                        #region 
-                        for (i = 0; i < 250; i++)
-                         {
-                            if ((line = sr.ReadLine()) != null)
-                                {
-                                k = (ushort)(Convert.ToUInt16(line)*655); // 65535 to % level
-                                scenes[j-1].UShortInput[i + 1].UShortValue = k;
-                                }
-                         }
-                        for (i = 0; i < 250; i++)
-                        {
-                            if ((line = sr.ReadLine()) != null)
-                            {
-                            k = (ushort)(Convert.ToUInt16(line) * 655); // 65535 to % level
-                            scenes[j - 1].UShortInput[i + 251].UShortValue = k;
-                            }
-                        }
-                        for (i = 0; i < 250; i++)
-                        {
-                            if ((line = sr.ReadLine()) != null)
-                            {
-                            k = Convert.ToUInt16(line);
-                            scenes[j - 1].UShortInput[i + 501].UShortValue = k;
-                            }
-                        }
-                        for (i = 0; i < 250; i++)
-                        {
-                            if ((line = sr.ReadLine()) != null)
-                            {
-                            k = Convert.ToUInt16(line);
-                            scenes[j - 1].UShortInput[i + 751].UShortValue = k;
-                            }
-                        }
-                        for (i = 0; i < 250; i++)
-                        {
-                            if ((line = sr.ReadLine()) != null)
-                            {
-                            k = Convert.ToUInt16(line);
-                            scenes[j - 1].UShortInput[i + 1001].UShortValue = k;
-                            }
-                        }
-                        #endregion
-                    }
-                
                 }
+                for (uint i = 1; i < 251; i++)
+                {
+
+                    k = (ushort)(Convert.ToUInt16(sceneData[i + 251, j]) * 655); // 65535 to % level
+                    scenes[j - 1].UShortInput[i + 250].UShortValue = (ushort)k;
+
+                }
+                for (uint i = 1; i < 251; i++)
+                {
+
+                    k = (ushort)(Convert.ToUInt16(sceneData[i + 502, j])); // Red
+                    scenes[j - 1].UShortInput[i + 500].UShortValue = (ushort)k;
+
+                }
+                for (uint i = 1; i < 251; i++)
+                {
+
+                    k = (ushort)(Convert.ToUInt16(sceneData[i + 753, j])); // Green
+                    scenes[j - 1].UShortInput[i + 750].UShortValue = (ushort)k;
+
+                }
+                for (uint i = 1; i < 251; i++)
+                {
+
+                    k = (ushort)(Convert.ToUInt16(sceneData[i + 1004, j])); // Blue
+                    scenes[j - 1].UShortInput[i + 1000].UShortValue = (ushort)k;
+
+                }
+
+            }
             catch
-                {
-                }
+            {
+             
+            }
 
         }
 
+        private void SceneSave(uint num)
+
+        {
+            try
+            {
+
+                string sceneFilePath = "/nvram/CB/Settings.xlsx";
+                uint j = num;
+                uint i,trueValue;
+                Xlsheet xlsheet1 = new Xlsheet();
+               
+
+                for (i = 0; i < 250; i++)
+                {
+                    trueValue = scenes[j - 1].UShortOutput[i + 1].UShortValue;
+                    sceneData[i+1,j] =  (trueValue / 655).ToString();
+                }
+                for (i = 0; i < 250; i++)
+                {
+                    trueValue = scenes[j - 1].UShortOutput[i + 251].UShortValue;
+                    sceneData[i + 252, j] = (trueValue / 655).ToString();
+                }
+                for (i = 0; i < 250; i++)
+                {
+                    trueValue = scenes[j - 1].UShortOutput[i + 501].UShortValue;
+                    sceneData[i + 503, j] =  (trueValue).ToString();
+                }
+                for (i = 0; i < 250; i++)
+                {
+                    trueValue = scenes[j - 1].UShortOutput[i + 751].UShortValue;
+                    sceneData[i + 754, j] = (trueValue).ToString();
+                }
+                for (i = 0; i < 250; i++)
+                {
+                    trueValue = scenes[j - 1].UShortOutput[i + 1001].UShortValue;
+                    sceneData[i + 1005, j] = (trueValue).ToString();
+                }
+
+
+
+
+
+                xlsheet1.WriteExcel(sceneData, sceneFilePath, 0);
+            }
+            catch
+            {
+            }
+
+
+        }
+
+
         private void Eisc_SigChange(BasicTriList currentDevice, SigEventArgs args)
         {
-
+            
 
             switch (args.Sig.Type)
             {
                 case eSigType.Bool:
 
                     #region IPID E1 to E4
-                    for(uint k=0; k < 4; k++)
+                    for (uint k=0; k < 4; k++)
                     {
 
                         #region Zone Area
@@ -309,53 +348,21 @@ namespace CBL
 
 
 
-                    // Store and Ret in D1-8 change from E6-E8 change below
+                    // Store and Ret in D1-8 
                     #region Scene Store D1 to D8
                     try
                     {
-
+                        StringBuilder csvcontent = new StringBuilder();
                         for (uint j = 1; j < 9; j++)
                         {
 
-                            string values = $"Scene {j} \n";
-                            int trueValue = 1;
-                            string sceneFilePath = $"/nvram/Scenes/Scene{j}.txt";
-                            uint i;
 
                             #region D1
                             if (scenes[j-1].BooleanOutput[1].BoolValue == true)
                             {
-                                for (i = 0; i < 250 ; i++)
-                                {
-                                    trueValue = scenes[j - 1].UShortOutput[i + 1].UShortValue;
-                                    values = values + (trueValue/655).ToString() + "\n";
-                                }
-                                for (i = 0; i < 250; i++)
-                                {
-                                    trueValue = scenes[j - 1].UShortOutput[i + 251].UShortValue;
-                                    values = values + (trueValue / 655).ToString() + "\n";
-                                }
-                                for (i = 0; i < 250; i++)
-                                {
-                                    trueValue = scenes[j - 1].UShortOutput[i + 501].UShortValue;
-                                    values = values + (trueValue).ToString() + "\n";
-                                }
-                                for (i = 0; i < 250; i++)
-                                {
-                                    trueValue = scenes[j - 1].UShortOutput[i + 751].UShortValue;
-                                    values = values + (trueValue).ToString() + "\n";
-                                }
-                                for (i = 0; i < 250; i++)
-                                {
-                                    trueValue = scenes[j - 1].UShortOutput[i + 1001].UShortValue;
-                                    values = values + (trueValue).ToString() + "\n";
-                                    }
-                                values = values + "ENDOFFILE";
-                                using (FileStream fs = File.Create(sceneFilePath))
-                                {
-                                    fs.Write(values + Environment.NewLine, Encoding.Default);
-                                }
 
+                                SceneSave(j);
+                               
                             }
                             #endregion
                             
@@ -399,7 +406,7 @@ namespace CBL
                 for (uint i = 0; i < 8; i++)
                 {
 
-                    scenes[i] = new ThreeSeriesTcpIpEthernetIntersystemCommunications(209 + i, "127.0.0.2", this); // 225 is IPID D1
+                    scenes[i] = new ThreeSeriesTcpIpEthernetIntersystemCommunications(209 + i, "127.0.0.2", this); // 209 is IPID D1
                     if (scenes[i].Register() == eDeviceRegistrationUnRegistrationResponse.Success)
                         scenes[i].SigChange += Eisc_SigChange;
                     else
@@ -408,13 +415,11 @@ namespace CBL
 
 
                 #endregion
-
-
-
+              
             }
             catch (Exception e)
             {
-                ErrorLog.Error("Error in InitializeSystem: {0}", e.Message);
+                CrestronConsole.PrintLine("Error in InitializeSystem: {0}", e.Message);
             }
         }
 
