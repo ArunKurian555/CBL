@@ -367,7 +367,7 @@ namespace CBL
                             // Save
                             if (links[4].BooleanOutput[args.Sig.Number].BoolValue == true)
                             {
-                                for (uint i = 1; i < 301; i++)
+                                for (uint i = 1; i < 351; i++)
                                 {
                                     if (links[4].BooleanOutput[i].BoolValue == true)
                                     {
@@ -383,8 +383,8 @@ namespace CBL
                                 xlsheet.WriteExcel(zoneAreaData, FilePath, 1);
                             }
 
-                            if (links[4].BooleanOutput[301].BoolValue == true)
-                                for (uint i = 1; i < 301; i++)
+                            if (links[4].BooleanOutput[501].BoolValue == true)
+                                for (uint i = 1; i < 351; i++)
                             {
 
                                 if (i < 251)
