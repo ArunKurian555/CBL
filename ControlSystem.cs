@@ -17,7 +17,9 @@ namespace CBL
         Xlsheet xlsheet = new Xlsheet();
         string FilePath = "/nvram/CB/Settings.xlsx";
         ThreeSeriesTcpIpEthernetIntersystemCommunications[] links = new ThreeSeriesTcpIpEthernetIntersystemCommunications [5];
-        ThreeSeriesTcpIpEthernetIntersystemCommunications[] scenes= new ThreeSeriesTcpIpEthernetIntersystemCommunications[8];
+        ThreeSeriesTcpIpEthernetIntersystemCommunications[] scenes= new ThreeSeriesTcpIpEthernetIntersystemCommunications [8];
+        private ThreeSeriesTcpIpEthernetIntersystemCommunications nameSave;
+
         uint numberOfZones = 250;
         bool[] activeZones = new bool[250];
         string[,] sceneData,zoneAreaData, tempdata;
@@ -28,6 +30,7 @@ namespace CBL
             try
             {
                 Thread.MaxNumberOfUserThreads = 20;
+
 
                 CrestronConsole.AddNewConsoleCommand(RET, "Read", "Output the file content.", ConsoleAccessLevelEnum.AccessAdministrator);
 
@@ -59,7 +62,7 @@ namespace CBL
             tempdata = xlsheet.ReadExcel(FilePath, 1);
 
 
-            for (uint i = 0; i < 51; i++)
+            for (uint i = 0; i < 101; i++)
             {
                 CrestronConsole.PrintLine(tempdata[1, i].ToString());
             }
@@ -275,21 +278,21 @@ namespace CBL
 
                         #region Set and Save
 
-                        if (links[3].BooleanOutput[2000].BoolValue == true)
+                        if (nameSave.BooleanOutput[2000].BoolValue == true)
                         {
-                            numberOfAreas = Convert.ToUInt16(links[3].StringOutput[1].StringValue);
-                            links[3].UShortInput[1].UShortValue = numberOfAreas;
+                            numberOfAreas = Convert.ToUInt16(nameSave.StringOutput[2].StringValue);
+                            nameSave.UShortInput[1].UShortValue = numberOfAreas;
 
-                            for (uint i = 0; i < 50; i++)
+                            for (uint i = 0; i < 100; i++)
                             {
                                 if (i < numberOfAreas)
                                 {
-                                    links[3].BooleanInput[i + 2000].BoolValue = true;
+                                    nameSave.BooleanInput[i + 2000].BoolValue = true;
                                     zoneAreaData[1, i + 1] = "1";
                                 }
                                 else
                                 {
-                                    links[3].BooleanInput[i + 2000].BoolValue = false;
+                                    nameSave.BooleanInput[i + 2000].BoolValue = false;
                                     zoneAreaData[1, i + 1] = "0";
                                 }
                             }
@@ -300,25 +303,25 @@ namespace CBL
                         #region Retrieve
 
                         ushort numberOfArea = 0;
-                        if (links[3].BooleanOutput[2001].BoolValue == true)
+                        if (nameSave.BooleanOutput[2001].BoolValue == true)
                         {
                             try
                             {
 
 
-                                for (uint i = 0; i < 50; i++)
+                                for (uint i = 0; i < 100; i++)
                                 {
                                     if (zoneAreaData[1, i + 1].ToString() == "1")
 
                                     {
-                                        links[3].BooleanInput[i + 2000].BoolValue = true;
+                                        nameSave.BooleanInput[i + 2000].BoolValue = true;
                                         numberOfArea++;
                                     }
                                     else
-                                        links[3].BooleanInput[i + 2000].BoolValue = false;
+                                        nameSave.BooleanInput[i + 2000].BoolValue = false;
                                 }
 
-                                links[3].UShortInput[1].UShortValue = numberOfArea;
+                                nameSave.UShortInput[1].UShortValue = numberOfArea;
                             }
                             catch
                             {
@@ -331,7 +334,7 @@ namespace CBL
                         #endregion
 
                         #region Zone Area
-                        for (uint k = 0; k < 4; k++)
+                        for (uint k = 0; k < 8; k++)
                         {
                             uint areaIndex = args.Sig.Number / (numberOfZones + 2);
                             uint areaNumber = areaIndex + 1;
@@ -365,33 +368,33 @@ namespace CBL
 
                             #region Name
                             // Save
-                            if (links[4].BooleanOutput[args.Sig.Number].BoolValue == true)
+                            if (nameSave.BooleanOutput[args.Sig.Number].BoolValue == true)
                             {
                                 for (uint i = 1; i < 351; i++)
                                 {
-                                    if (links[4].BooleanOutput[i].BoolValue == true)
+                                    if (nameSave.BooleanOutput[i].BoolValue == true)
                                     {
 
                                         if (i < 251)
-                                            zoneAreaData[i + 1, 0] = links[4].StringOutput[1].StringValue;
+                                            zoneAreaData[i + 1, 0] = nameSave.StringOutput[1].StringValue;
 
                                         if (i > 250)
-                                            zoneAreaData[0, i - 250] = links[4].StringOutput[1].StringValue;
+                                            zoneAreaData[0, i - 250] = nameSave.StringOutput[1].StringValue;
 
                                     }
                                 }
                                 xlsheet.WriteExcel(zoneAreaData, FilePath, 1);
                             }
 
-                            if (links[4].BooleanOutput[501].BoolValue == true)
+                            if (nameSave.BooleanOutput[501].BoolValue == true)
                                 for (uint i = 1; i < 351; i++)
                             {
 
                                 if (i < 251)
-                                    links[4].StringInput[i].StringValue = zoneAreaData[i + 1, 0];
+                                    nameSave.StringInput[i].StringValue = zoneAreaData[i + 1, 0];
 
                                 if (i > 250)
-                                    links[4].StringInput[i].StringValue = zoneAreaData[0, i - 250];
+                                    nameSave.StringInput[i].StringValue = zoneAreaData[0, i - 250];
 
 
                             }
@@ -420,7 +423,7 @@ namespace CBL
 
                 #region EISC Reg
 
-                for (uint i = 0; i <5; i++)
+                for (uint i = 0; i <4; i++)
                 {
                     links[i] = new ThreeSeriesTcpIpEthernetIntersystemCommunications (225 + i, "127.0.0.2", this); // 225 is IPID E1
                     if (links[i].Register() == eDeviceRegistrationUnRegistrationResponse.Success)
@@ -438,6 +441,13 @@ namespace CBL
                     else
                         CrestronConsole.PrintLine("EISC not registered");
                 }
+
+                nameSave = new ThreeSeriesTcpIpEthernetIntersystemCommunications(0xD0, "127.0.0.2", this); // 208 is IPID D0
+                if (nameSave.Register() == eDeviceRegistrationUnRegistrationResponse.Success)
+                    nameSave.SigChange += Eisc_SigChange;
+                else
+                    CrestronConsole.PrintLine("EISC not registered");
+
                 #endregion
 
                 #region Info Ret
